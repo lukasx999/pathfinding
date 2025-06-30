@@ -219,7 +219,7 @@ int main() {
     Solver solver;
 
     // TODO: graph editor
-    InitWindow(WIDTH, HEIGHT, "path finding");
+    InitWindow(WIDTH, HEIGHT, "Path Finding");
 
     while (!WindowShouldClose()) {
         BeginDrawing();
