@@ -36,6 +36,7 @@ static void draw_text_centered(const std::string &text, Vector2 center, float fo
 }
 
 class Solver {
+    VertexId m_id = 6;
     std::unordered_map<VertexId, Vertex> m_vertices {
         { 1, { 1, { { 2, 5}, { 5, 2 } }, { 0, 0.5 } } },
         { 2, { 2, { { 1, 5}, { 3, 2 } }, { 1, 1 } } },
@@ -67,6 +68,12 @@ class Solver {
     static constexpr float m_vertex_spacing = 300;
 
 public:
+    void add_vertex(Vector2 abspos) {
+        auto normalized_pos = (abspos - m_draw_offset) / m_vertex_spacing;
+        m_vertices[m_id] = Vertex { m_id, {}, normalized_pos };
+        m_id++;
+    }
+
     void draw() const {
 
         // DrawText(std::format("current: {}", m_current).c_str(), 0, 0, fontsize, WHITE);
@@ -200,9 +207,9 @@ private:
 
     [[nodiscard]] static constexpr const char *stringify_state(State state) {
         switch (state) {
-            case State::Idle: return "Idle";
+            case State::Idle:       return "Idle";
             case State::NextVertex: return "NextVertex";
-            case State::Visiting: return "Visiting";
+            case State::Visiting:   return "Visiting";
             case State::Terminated: return "Terminated";
         }
     }
@@ -224,6 +231,9 @@ int main() {
 
             if (IsKeyPressed(KEY_J))
                 solver.next();
+
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+                solver.add_vertex(GetMousePosition());
 
         }
         EndDrawing();
