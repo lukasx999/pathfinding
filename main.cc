@@ -36,7 +36,6 @@ static void draw_text_centered(const std::string &text, Vector2 center, float fo
 }
 
 class Solver {
-    VertexId m_id = 6;
     std::unordered_map<VertexId, Vertex> m_vertices {
         { 1, { 1, { { 2, 5}, { 5, 2 } }, { 0, 0.5 } } },
         { 2, { 2, { { 1, 5}, { 3, 2 } }, { 1, 1 } } },
@@ -44,6 +43,7 @@ class Solver {
         { 4, { 4, { { 3, 2}, { 5, 1 } }, { 0.75, 0 } } },
         { 5, { 5, { { 1, 2}, { 4, 1 } }, { 0.25, 0 } } },
     };
+    VertexId m_id = 6;
     std::list<VertexId> m_unvisited { 1, 2, 3, 4, 5 };
     // static constexpr int m_inf = std::numeric_limits<int>::max();
     static constexpr int m_inf = 999;
@@ -54,7 +54,6 @@ class Solver {
         { 4, m_inf },
         { 5, m_inf },
     };
-
     VertexId m_current;
     std::vector<Edge>::iterator m_neighbour;
     enum class State {
@@ -95,7 +94,7 @@ public:
             draw_neighbours(pos, value.m_neighbours);
 
             float radius = 30;
-            DrawCircleV(value.m_pos*m_vertex_spacing + m_draw_offset, radius, color);
+            DrawCircleV(value.m_pos * m_vertex_spacing + m_draw_offset, radius, color);
 
             float fontsize = 50;
             draw_text_centered(std::format("{}", key), pos, fontsize, WHITE);
@@ -141,7 +140,6 @@ public:
 
                 visit_neighbour();
                 m_neighbour++;
-
 
             } break;
 
