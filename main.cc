@@ -1,4 +1,5 @@
 #include <list>
+#include <span>
 #include <unordered_map>
 #include <ranges>
 #include <print>
@@ -29,6 +30,11 @@ struct Vertex {
     Vector2 m_pos;
 };
 
+static void draw_text_centered(const std::string &text, Vector2 center, float fontsize, Color color) {
+    int textsize = MeasureText(text.c_str(), fontsize);
+    DrawText(text.c_str(), center.x-textsize/2.0f, center.y-fontsize/2.0f, fontsize, color);
+}
+
 class Solver {
     std::unordered_map<VertexId, Vertex> m_vertices {
         { 1, { 1, { { 2, 5}, { 5, 2 } }, { 0, 0.5 } } },
@@ -56,27 +62,21 @@ class Solver {
         Visiting,
         Terminated,
     } m_state = State::Idle;
+    static constexpr float m_fontsize = 50;
+    static constexpr Vector2 m_draw_offset { WIDTH/2.0f, HEIGHT/2.0f };
+    static constexpr float m_vertex_spacing = 300;
 
 public:
     void draw() const {
 
-        float fontsize = 50;
         // DrawText(std::format("current: {}", m_current).c_str(), 0, 0, fontsize, WHITE);
         // DrawText(std::format("unvisited: {}", m_unvisited).c_str(), 0, fontsize*2, fontsize, WHITE);
         // DrawText(std::format("state: {}", stringify_state(m_state)).c_str(), 0, fontsize*3, fontsize, WHITE);
 
-        for (auto &&[idx, kv] : std::views::enumerate(m_distances)) {
-            auto &[key, dist] = kv;
-            DrawText(std::format("{}: {}", key, dist).c_str(), 0, fontsize*idx, fontsize, WHITE);
-        }
+        draw_distance_table();
 
         for (auto &[key, value] : m_vertices) {
-            Vector2 base { WIDTH/2.0f, HEIGHT/2.0f };
-            float factor = 300;
-            auto pos = value.m_pos*factor+base;
-
-            float fontsize_vertex = 50;
-
+            auto pos = value.m_pos * m_vertex_spacing + m_draw_offset;
             auto color = value.m_id == m_current ? RED : BLUE;
 
             if (m_state == State::Visiting) {
@@ -85,19 +85,13 @@ public:
                     color = GREEN;
             }
 
+            draw_neighbours(pos, value.m_neighbours);
+
             float radius = 30;
-            DrawCircleV(value.m_pos*factor + base, radius, color);
+            DrawCircleV(value.m_pos*m_vertex_spacing + m_draw_offset, radius, color);
 
-            auto text = std::format("{}", key);
-            auto textsize = MeasureText(text.c_str(), fontsize_vertex);
-            DrawText(text.c_str(), pos.x-textsize/2.0f, pos.y-fontsize_vertex/2.0f, fontsize_vertex, WHITE);
-
-            for (auto &edge : value.m_neighbours) {
-                auto other = m_vertices.at(edge.m_other_id);
-
-                auto color = GRAY;
-                DrawLineV(pos, other.m_pos*factor+base, color);
-            }
+            float fontsize = 50;
+            draw_text_centered(std::format("{}", key), pos, fontsize, WHITE);
 
         }
     }
@@ -148,6 +142,39 @@ public:
     }
 
 private:
+    void draw_neighbours(Vector2 vertex_pos, std::span<const Edge> edges) const {
+
+        for (const auto &edge : edges) {
+
+            VertexId id = edge.m_other_id;
+            auto other = m_vertices.at(id);
+            auto other_pos = other.m_pos * m_vertex_spacing + m_draw_offset;
+
+            auto color = GRAY;
+
+            // if (m_state == State::Visiting && key == m_current && m_neighbour->m_other_id == id) {
+            //     color = GREEN;
+            // }
+
+            DrawLineEx(vertex_pos, other_pos, 5, color);
+
+            auto diff = other_pos - vertex_pos;
+            float dist = Vector2Length(diff) / 2.0f;
+            auto line_middle = vertex_pos + Vector2Normalize(diff) * dist;
+
+            float fontsize = 50;
+            draw_text_centered(std::format("{}", edge.m_weight), line_middle, fontsize, WHITE);
+
+        }
+    }
+
+    void draw_distance_table() const {
+        for (auto &&[idx, kv] : std::views::enumerate(m_distances)) {
+            auto &[key, dist] = kv;
+            DrawText(std::format("{}: {}", key, dist).c_str(), 0, m_fontsize*idx, m_fontsize, WHITE);
+        }
+    }
+
     inline void next_unvisited() {
         m_current = *ranges::min_element(m_unvisited, [&](VertexId a, VertexId b) {
             return m_distances.at(a) < m_distances.at(b);
