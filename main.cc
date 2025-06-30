@@ -72,23 +72,27 @@ public:
             });
 
             auto vert = m_vertices.at(current);
-
-            int current_dist = m_distances.at(current);
-            for (auto &[other, weight] : vert.m_neighbours) {
-
-                bool is_unvisited = ranges::find(m_unvisited, other) != m_unvisited.end();
-                if (!is_unvisited) continue;
-
-                int dist = current_dist + weight;
-                if (dist < m_distances.at(other)) {
-                    m_distances[other] = dist;
-                }
-            }
+            visit_neighbours(vert);
 
             m_unvisited.remove(current);
 
         }
 
+    }
+
+    void visit_neighbours(const Vertex &vert) {
+        int current_dist = m_distances.at(vert.m_id);
+
+        for (auto &[other, weight] : vert.m_neighbours) {
+
+            bool is_unvisited = ranges::find(m_unvisited, other) != m_unvisited.end();
+            if (!is_unvisited) continue;
+
+            int dist = current_dist + weight;
+            if (dist < m_distances.at(other)) {
+                m_distances[other] = dist;
+            }
+        }
     }
 
 };
