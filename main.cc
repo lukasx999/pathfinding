@@ -8,6 +8,8 @@
 #include <raylib.h>
 #include <raymath.h>
 
+#define PRINT(x) std::println("{}: {}", #x, x)
+
 static constexpr int WIDTH = 1600;
 static constexpr int HEIGHT = 900;
 
@@ -27,7 +29,7 @@ struct Vertex {
 };
 
 class Solver {
-    const std::unordered_map<VertexId, Vertex> m_vertices {
+    std::unordered_map<VertexId, Vertex> m_vertices {
         { 1, { 1, { { 2, 5}, { 5, 2 } }, { 0, 0.5 } } },
         { 2, { 2, { { 1, 5}, { 3, 2 } }, { 1, 1 } } },
         { 3, { 3, { { 2, 2}, { 4, 2 } }, { 2, 0.5 } } },
@@ -44,16 +46,30 @@ class Solver {
         { 5, m_inf },
     };
 
+    VertexId m_current;
+    std::optional<std::vector<Edge>::iterator> m_neighbour;
+
 public:
     void draw() const {
 
         float fontsize = 50;
-        DrawText(std::format("distances to src: {}", m_distances).c_str(), 0, 0, fontsize, WHITE);
+        DrawText(std::format("current: {}", m_current).c_str(), 0, 0, fontsize, WHITE);
+        DrawText(std::format("distances to src: {}", m_distances).c_str(), 0, fontsize, fontsize, WHITE);
+        DrawText(std::format("unvisited: {}", m_unvisited).c_str(), 0, fontsize*2, fontsize, WHITE);
 
         for (auto &[key, value] : m_vertices) {
             Vector2 base { WIDTH/2.0f, HEIGHT/2.0f };
             float factor = 150;
-            DrawCircleV(value.m_pos*factor + base, 5, BLUE);
+
+            auto color = value.m_id == m_current ? RED : BLUE;
+
+            if (m_neighbour.has_value()) {
+                auto neighbour = m_neighbour.value()->m_other_id;
+                if (value.m_id == neighbour)
+                    color = GREEN;
+            }
+
+            DrawCircleV(value.m_pos*factor + base, 5, color);
 
             for (auto &other : value.m_neighbours) {
                 auto other_id = m_vertices.at(other.m_other_id);
@@ -63,36 +79,51 @@ public:
         }
     }
 
-    void solve() {
+    void next() {
 
-        while (!m_unvisited.empty()) {
+        if (m_unvisited.empty()) return;
 
-            VertexId current = *ranges::min_element(m_unvisited, [&](VertexId a, VertexId b) {
+        if (m_neighbour.has_value()) {
+
+            auto &vtx = m_vertices.at(m_current);
+
+            if (m_neighbour == vtx.m_neighbours.end()) {
+                m_neighbour.reset();
+                m_unvisited.remove(m_current);
+                next();
+
+            } else {
+                visit_neighbour();
+                m_neighbour.value()++;
+
+            }
+
+        } else {
+            m_current = *ranges::min_element(m_unvisited, [&](VertexId a, VertexId b) {
                 return m_distances.at(a) < m_distances.at(b);
             });
 
-            auto vert = m_vertices.at(current);
-            visit_neighbours(vert);
-
-            m_unvisited.remove(current);
-
+            auto &vtx = m_vertices.at(m_current);
+            m_neighbour = vtx.m_neighbours.begin();
         }
 
     }
 
-    void visit_neighbours(const Vertex &vert) {
-        int current_dist = m_distances.at(vert.m_id);
+    void visit_neighbour() {
+        auto current = m_vertices.at(m_current);
+        int current_dist = m_distances.at(current.m_id);
 
-        for (auto &[other, weight] : vert.m_neighbours) {
+        auto v = *m_neighbour.value();
+        auto other = v.m_other_id;
 
-            bool is_unvisited = ranges::find(m_unvisited, other) != m_unvisited.end();
-            if (!is_unvisited) continue;
+        bool is_unvisited = ranges::find(m_unvisited, other) != m_unvisited.end();
+        if (!is_unvisited) return;
 
-            int dist = current_dist + weight;
-            if (dist < m_distances.at(other)) {
-                m_distances[other] = dist;
-            }
+        int dist = current_dist + v.m_weight;
+        if (dist < m_distances.at(other)) {
+            m_distances[other] = dist;
         }
+
     }
 
 };
@@ -100,7 +131,6 @@ public:
 int main() {
 
     Solver solver;
-    solver.solve();
 
     // TODO: graph editor
     InitWindow(WIDTH, HEIGHT, "path finding");
@@ -110,6 +140,9 @@ int main() {
         {
             ClearBackground(BLACK);
             solver.draw();
+
+            if (IsKeyPressed(KEY_J))
+                solver.next();
 
         }
         EndDrawing();
