@@ -1,3 +1,4 @@
+#include <cassert>
 #include <list>
 #include <span>
 #include <unordered_map>
@@ -76,6 +77,7 @@ public:
 
                 if (m_unvisited.empty()) {
                     m_state = State::Terminated;
+                    assert(m_unvisited.empty());
                     return;
                 };
 
@@ -186,8 +188,20 @@ public:
 
 private:
     inline void draw_ui() const {
-        DrawText(std::format("unvisited: {}", m_solver.m_unvisited).c_str(), 0, 0, m_fontsize, WHITE);
-        DrawText(std::format("state: {}", m_solver.stringify_state(m_solver.m_state)).c_str(), 0, m_fontsize, m_fontsize, WHITE);
+        DrawText(
+            std::format("unvisited: {}", m_solver.m_unvisited).c_str(),
+            0,
+            0,
+            m_fontsize,
+            WHITE
+        );
+        DrawText(
+            std::format("state: {}", m_solver.stringify_state(m_solver.m_state)).c_str(),
+            0,
+            m_fontsize,
+            m_fontsize,
+            WHITE
+        );
         draw_distance_table({ 0, m_fontsize*3 });
     }
 
@@ -216,16 +230,17 @@ private:
 
             auto color = GRAY;
 
-            if (m_solver.m_state == Solver::State::Visiting) {
-
-                bool is_origin = origin == m_solver.m_current;
-                bool is_currently_visited = m_solver.m_neighbour->m_other_id == id;
-
-                if (is_origin && is_currently_visited) {
-                    color = GREEN;
-                }
-
-            }
+            // FIXME:
+            // if (m_solver.m_state == Solver::State::Visiting) {
+            //
+            //     bool is_origin = origin == m_solver.m_current;
+            //     bool is_currently_visited = m_solver.m_neighbour->m_other_id == id;
+            //
+            //     if (is_origin && is_currently_visited) {
+            //         color = GREEN;
+            //     }
+            //
+            // }
 
             DrawLineEx(vertex_pos, pos, 5, color);
 
@@ -245,9 +260,9 @@ private:
 int main() {
 
     std::unordered_map<VertexId, Vertex> m_vertices {
-        { 1, { 1, { { 2, 5 }, { 5, 2 }, { 3, 1 } }, { 0, 0.5 } } },
+        { 1, { 1, { { 2, 5 }, { 5, 2 } }, { 0, 0.5 } } },
         { 2, { 2, { { 1, 5 }, { 3, 2 }, { 4, 1 } }, { 1, 1 } } },
-        { 3, { 3, { { 2, 2 }, { 4, 2 }, { 1, 1 } }, { 2, 0.5 } } },
+        { 3, { 3, { { 2, 2 }, { 4, 2 } }, { 2, 0.5 } } },
         { 4, { 4, { { 3, 2 }, { 5, 1 }, { 2, 1 } }, { 0.75, 0 } } },
         { 5, { 5, { { 1, 2 }, { 4, 1 } }, { 0.25, 0 } } },
     };
