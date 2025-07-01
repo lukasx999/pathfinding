@@ -5,7 +5,6 @@
 #include <print>
 #include <vector>
 #include <algorithm>
-#include <limits>
 
 #include <raylib.h>
 #include <raymath.h>
@@ -30,32 +29,19 @@ struct Vertex {
     Vector2 m_pos;
 };
 
-static void draw_text_centered(const std::string &text, Vector2 center, float fontsize, Color color) {
+static inline void draw_text_centered(const std::string &text, Vector2 center, float fontsize, Color color) {
     int textsize = MeasureText(text.c_str(), fontsize);
     DrawText(text.c_str(), center.x-textsize/2.0f, center.y-fontsize/2.0f, fontsize, color);
 }
 
+
 class Solver {
-    std::unordered_map<VertexId, Vertex> m_vertices {
-        { 1, { 1, { { 2, 5}, { 5, 2 } }, { 0, 0.5 } } },
-        { 2, { 2, { { 1, 5}, { 3, 2 } }, { 1, 1 } } },
-        { 3, { 3, { { 2, 2}, { 4, 2 } }, { 2, 0.5 } } },
-        { 4, { 4, { { 3, 2}, { 5, 1 } }, { 0.75, 0 } } },
-        { 5, { 5, { { 1, 2}, { 4, 1 } }, { 0.25, 0 } } },
-    };
-    VertexId m_id = 6;
-    std::list<VertexId> m_unvisited { 1, 2, 3, 4, 5 };
-    // static constexpr int m_inf = std::numeric_limits<int>::max();
+    const std::unordered_map<VertexId, Vertex> &m_vertices;
+    std::list<VertexId> m_unvisited;
     static constexpr int m_inf = 999;
-    std::unordered_map<VertexId, int> m_distances {
-        { 1, 0 },
-        { 2, m_inf },
-        { 3, m_inf },
-        { 4, m_inf },
-        { 5, m_inf },
-    };
+    std::unordered_map<VertexId, int> m_distances;
     VertexId m_current;
-    std::vector<Edge>::iterator m_neighbour;
+    std::vector<Edge>::const_iterator m_neighbour;
     enum class State {
         Idle,
         NextVertex,
@@ -67,10 +53,20 @@ class Solver {
     static constexpr float m_vertex_spacing = 300;
 
 public:
-    void add_vertex(Vector2 abspos) {
-        auto normalized_pos = (abspos - m_draw_offset) / m_vertex_spacing;
-        m_vertices[m_id] = Vertex { m_id, {}, normalized_pos };
-        m_id++;
+    Solver(const std::unordered_map<VertexId, Vertex> &vertices, VertexId source)
+    : m_vertices(vertices)
+    {
+        reset(source);
+    }
+
+    void reset(VertexId source) {
+
+        ranges::for_each(m_vertices, [&](const std::pair<VertexId, Vertex> &kv) {
+            auto &[key, value] = kv;
+            m_unvisited.push_back(key);
+            m_distances[key] = key == source ? 0 : m_inf;
+        });
+
     }
 
     void draw() const {
@@ -83,6 +79,12 @@ public:
 
         for (auto &[key, value] : m_vertices) {
             auto pos = value.m_pos * m_vertex_spacing + m_draw_offset;
+            draw_neighbours(pos, value.m_neighbours, key);
+        }
+
+        for (auto &[key, value] : m_vertices) {
+            // TODO: remove code duplication
+            auto pos = value.m_pos * m_vertex_spacing + m_draw_offset;
             auto color = value.m_id == m_current ? RED : BLUE;
 
             if (m_state == State::Visiting) {
@@ -90,8 +92,6 @@ public:
                 if (value.m_id == neighbour)
                     color = GREEN;
             }
-
-            draw_neighbours(pos, value.m_neighbours);
 
             float radius = 30;
             DrawCircleV(value.m_pos * m_vertex_spacing + m_draw_offset, radius, color);
@@ -123,7 +123,7 @@ public:
 
             case State::NextVertex: {
                 auto &vtx = m_vertices.at(m_current);
-                m_neighbour = vtx.m_neighbours.begin();
+                m_neighbour = vtx.m_neighbours.cbegin();
                 m_state = State::Visiting;
 
             } break;
@@ -147,23 +147,25 @@ public:
     }
 
 private:
-    void draw_neighbours(Vector2 vertex_pos, std::span<const Edge> edges) const {
+    void draw_neighbours(Vector2 vertex_pos, std::span<const Edge> edges, VertexId source) const {
 
         for (const auto &edge : edges) {
 
             VertexId id = edge.m_other_id;
-            auto other = m_vertices.at(id);
-            auto other_pos = other.m_pos * m_vertex_spacing + m_draw_offset;
+            auto vtx = m_vertices.at(id);
+            auto pos = vtx.m_pos * m_vertex_spacing + m_draw_offset;
 
             auto color = GRAY;
 
-            // if (m_state == State::Visiting && key == m_current && m_neighbour->m_other_id == id) {
-            //     color = GREEN;
-            // }
+            if (m_state == State::Visiting) {
+                if (source == m_current && m_neighbour->m_other_id == id) {
+                    color = GREEN;
+                }
+            }
 
-            DrawLineEx(vertex_pos, other_pos, 5, color);
+            DrawLineEx(vertex_pos, pos, 5, color);
 
-            auto diff = other_pos - vertex_pos;
+            auto diff = pos - vertex_pos;
             float dist = Vector2Length(diff) / 2.0f;
             auto line_middle = vertex_pos + Vector2Normalize(diff) * dist;
 
@@ -171,6 +173,7 @@ private:
             draw_text_centered(std::format("{}", edge.m_weight), line_middle, fontsize, WHITE);
 
         }
+
     }
 
     void draw_distance_table() const {
@@ -214,11 +217,37 @@ private:
 
 };
 
+class GraphEditor {
+    VertexId m_id = 6;
+    std::unordered_map<VertexId, Vertex> m_vertices {
+        { 1, { 1, { { 2, 5 }, { 5, 2 } }, { 0, 0.5 } } },
+        { 2, { 2, { { 1, 5 }, { 3, 2 }, { 4, 1 } }, { 1, 1 } } },
+        { 3, { 3, { { 2, 2 }, { 4, 2 } }, { 2, 0.5 } } },
+        { 4, { 4, { { 3, 2 }, { 5, 1 }, { 2, 1 } }, { 0.75, 0 } } },
+        { 5, { 5, { { 1, 2 }, { 4, 1 } }, { 0.25, 0 } } },
+    };
+    // TODO: remove
+    static constexpr Vector2 m_draw_offset { WIDTH/2.0f, HEIGHT/2.0f };
+    static constexpr float m_vertex_spacing = 300;
+
+public:
+    [[nodiscard]] auto &get() const {
+        return m_vertices;
+    }
+
+    void add_vertex(Vector2 abspos) {
+        auto normalized_pos = (abspos - m_draw_offset) / m_vertex_spacing;
+        m_vertices[m_id] = Vertex { m_id, {}, normalized_pos };
+        m_id++;
+    }
+
+};
+
 int main() {
 
-    Solver solver;
+    GraphEditor ed;
+    Solver solver(ed.get(), 1);
 
-    // TODO: graph editor
     InitWindow(WIDTH, HEIGHT, "Path Finding");
 
     while (!WindowShouldClose()) {
@@ -227,11 +256,16 @@ int main() {
             ClearBackground(BLACK);
             solver.draw();
 
+            if (IsKeyPressed(KEY_K)) {
+                solver.reset(1);
+            }
+
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+                ed.add_vertex(GetMousePosition());
+
             if (IsKeyPressed(KEY_J))
                 solver.next();
 
-            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
-                solver.add_vertex(GetMousePosition());
 
         }
         EndDrawing();
