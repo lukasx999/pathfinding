@@ -218,6 +218,7 @@ private:
             case State::Visiting:   return "Visiting";
             case State::Terminated: return "Terminated";
         }
+        std::unreachable();
     }
 
 };
