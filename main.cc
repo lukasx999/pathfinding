@@ -185,10 +185,9 @@ public:
     }
 
 private:
-    void draw_ui() const {
+    inline void draw_ui() const {
         DrawText(std::format("unvisited: {}", m_solver.m_unvisited).c_str(), 0, 0, m_fontsize, WHITE);
         DrawText(std::format("state: {}", m_solver.stringify_state(m_solver.m_state)).c_str(), 0, m_fontsize, m_fontsize, WHITE);
-
         draw_distance_table({ 0, m_fontsize*3 });
     }
 
