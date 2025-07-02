@@ -333,7 +333,7 @@ private:
 
 int main() {
 
-    auto vertices = generate_random_vertices(10);
+    auto vertices = generate_random_vertices(50);
 
     // std::unordered_map<VertexId, Vertex> vertices {
     //     { 1, { 1, { { 2, 5 }, { 5, 2 } }, { 0, 0.5 } } },
