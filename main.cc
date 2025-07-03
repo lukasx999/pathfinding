@@ -207,6 +207,9 @@ public:
             draw_vertex(id, vtx);
         }
 
+        float radius = 10;
+        DrawCircleV(convert_vertex_pos(m_solver.m_vertices.at(m_solver.m_source).m_pos), radius, RED);
+
         draw_ui();
 
     }
@@ -218,35 +221,37 @@ private:
 
     void draw_vertex(VertexId id, Vertex vtx) const {
 
-            auto pos = convert_vertex_pos(vtx.m_pos);
-            auto color = vtx.m_id == m_solver.m_current ? RED : BLUE;
+        auto pos = convert_vertex_pos(vtx.m_pos);
+        auto color = vtx.m_id == m_solver.m_current ? RED : BLUE;
 
-            if (m_solver.m_state == Solver::State::Visiting) {
-                auto neighbour = m_solver.m_neighbour->m_other_id;
-                if (vtx.m_id == neighbour)
-                    color = GREEN;
+        if (m_solver.m_state == Solver::State::Visiting) {
+            auto neighbour = m_solver.m_neighbour->m_other_id;
+            if (vtx.m_id == neighbour)
+                color = GREEN;
+        }
+
+        if (m_solver.m_state == Solver::State::Terminated) {
+            // TODO: make dest configurable
+            auto path = m_solver.get_optimal_path(3);
+            bool exists = ranges::find(path, id) != path.end();
+            if (exists) {
+                color = PURPLE;
             }
+        }
 
-            if (m_solver.m_state == Solver::State::Terminated) {
-                // TODO: make dest configurable
-                auto path = m_solver.get_optimal_path(3);
-                bool exists = ranges::find(path, id) != path.end();
-                if (exists) {
-                    color = PURPLE;
-                }
-            }
+        float radius = 1;
+        DrawCircleV(convert_vertex_pos(vtx.m_pos), radius, color);
 
-            float radius = 1;
-            DrawCircleV(convert_vertex_pos(vtx.m_pos), radius, color);
-
-            // TODO:
-            // float fontsize = 50;
-            // draw_text_centered(std::format("{}", id), pos, fontsize, WHITE);
+        // TODO:
+        // float fontsize = 50;
+        // draw_text_centered(std::format("{}", id), pos, fontsize, WHITE);
     }
 
-    inline void draw_ui() const {
+    void draw_ui() const {
+
         // TODO:
         return;
+
         DrawText(
             std::format("unvisited: {}", m_solver.m_unvisited).c_str(),
             0,
@@ -254,6 +259,7 @@ private:
             m_fontsize,
             WHITE
         );
+
         DrawText(
             std::format("state: {}", m_solver.stringify_state(m_solver.m_state)).c_str(),
             0,
@@ -261,6 +267,7 @@ private:
             m_fontsize,
             WHITE
         );
+
         draw_distance_table({ 0, m_fontsize*3 });
     }
 
@@ -287,7 +294,7 @@ private:
             auto vtx = m_solver.m_vertices.at(id);
             auto pos = convert_vertex_pos(vtx.m_pos);
 
-            DrawLineEx(vertex_pos, pos, 5, GRAY);
+            DrawLineEx(vertex_pos, pos, 3, GRAY);
 
             // TODO:
             // auto diff = pos - vertex_pos;
@@ -350,22 +357,17 @@ private:
     return elems;
 }
 
-[[nodiscard]] static Vector2 vec2_from_lat_lon(float lat, float lon, float radius) {
-    float phi = (90 - lat) * (PI / 180);
-    float theta = (lon + 180) * (PI / 180);
-
-    float x = -(radius * sin(phi) * cos(theta));
-    float y = (radius * sin(phi) * sin(theta));
-
+[[nodiscard]] static constexpr Vector2 vec2_from_lat_lon(float lat, float lon, float width, float height) {
+    float x = ((width/360.0) * (180 + lon));
+    float y = ((height/180.0) * (90 - lat));
     return { x, y };
 }
 
-int main() {
-
+[[nodiscard]] static auto vertices_from_xml(const char *filename) {
     std::unordered_map<VertexId, Vertex> vertices;
 
     tinyxml2::XMLDocument doc;
-    doc.LoadFile("./map.osm");
+    doc.LoadFile(filename);
 
     auto osm = doc.FirstChildElement("osm");
     assert(osm != nullptr);
@@ -376,20 +378,22 @@ int main() {
         auto id = node->Attribute("id");
         auto lat = node->Attribute("lat");
         auto lon = node->Attribute("lon");
-        std::println("id: {}, lat: {}, lon: {}", id, lat, lon);
 
-        VertexId vtx_id;
+        VertexId vtx_id = 0;
         std::from_chars(id, id + strlen(id), vtx_id);
 
-        float latf;
+        float latf = 0;
         std::from_chars(lat, lat + strlen(lat), latf);
 
-        float lonf;
+        float lonf = 0;
         std::from_chars(lon, lon + strlen(lon), lonf);
 
-        Vector2 pos = vec2_from_lat_lon(latf, lonf, 1.0f);
-        pos.x = abs(pos.x);
-        pos.y = abs(pos.y);
+        Vector2 pos = vec2_from_lat_lon(latf, lonf, 1.0f, 1.0f);
+        std::println("id: {}, x: {}, y: {}", id, pos.x, pos.y);
+
+        pos.x -= 0.52;
+        pos.y -= 0.22;
+        pos *= 30;
 
         vertices[vtx_id] = { vtx_id, { }, pos };
     }
@@ -398,13 +402,44 @@ int main() {
 
     for (auto &way : ways) {
         auto nds = xml_get_child_elements(way, "nd");
+
+        auto first_str = nds[0]->Attribute("ref");
+        VertexId first = 0;
+        std::from_chars(first_str, first_str + strlen(first_str), first);
+
+        auto last_str = nds[nds.size()-1]->Attribute("ref");
+        VertexId last = 0;
+        std::from_chars(last_str, last_str + strlen(last_str), last);
+
+        // vertices[first].m_neighbours.push_back({ last, 1 });
+        // vertices[last].m_neighbours.push_back({ first, 1 });
+
         for (auto &nd : nds) {
-            auto ref = nd->Attribute("ref");
-            std::println("ref: {}", ref);
+            auto id_str = nd->Attribute("ref");
+            VertexId id = 0;
+            std::from_chars(id_str, id_str + strlen(id_str), id);
+
+            for (auto &other : nds) {
+                auto other_str = other->Attribute("ref");
+                VertexId other_id = 0;
+                std::from_chars(other_str, other_str + strlen(other_str), other_id);
+
+                if (other_id == id) continue;
+
+                vertices[id].m_neighbours.push_back(Edge { other_id, 1 });
+            }
+
         }
+
     }
 
-    std::println("vertices: {}", vertices.size());
+    return vertices;
+}
+
+int main() {
+
+    auto vertices = vertices_from_xml("./map.osm");
+
     // auto vertices = generate_random_vertices(10);
 
     // std::unordered_map<VertexId, Vertex> vertices {
@@ -415,7 +450,9 @@ int main() {
     //     { 5, { 5, { { 1, 2 }, { 4, 1 } }, { 0.25, 0 } } },
     // };
 
-    Solver solver(vertices, 1);
+    std::println("vertices: {}", vertices.size());
+
+    Solver solver(vertices, 12966960339);
     Renderer renderer(solver);
 
     SetTraceLogLevel(LOG_ERROR);
