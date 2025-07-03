@@ -11,6 +11,8 @@
 #include <raylib.h>
 #include <raymath.h>
 
+#include "./tinyxml2.h"
+
 #define PRINT(x) std::println("{}: {}", #x, x)
 
 static constexpr int WIDTH = 1600;
@@ -18,7 +20,7 @@ static constexpr int HEIGHT = 900;
 
 namespace ranges = std::ranges;
 
-using VertexId = int;
+using VertexId = int64_t;
 
 struct Edge {
     VertexId m_other_id;
@@ -234,14 +236,17 @@ private:
                 }
             }
 
-            float radius = 30;
+            float radius = 1;
             DrawCircleV(convert_vertex_pos(vtx.m_pos), radius, color);
 
-            float fontsize = 50;
-            draw_text_centered(std::format("{}", id), pos, fontsize, WHITE);
+            // TODO:
+            // float fontsize = 50;
+            // draw_text_centered(std::format("{}", id), pos, fontsize, WHITE);
     }
 
     inline void draw_ui() const {
+        // TODO:
+        return;
         DrawText(
             std::format("unvisited: {}", m_solver.m_unvisited).c_str(),
             0,
@@ -284,12 +289,12 @@ private:
 
             DrawLineEx(vertex_pos, pos, 5, GRAY);
 
-            auto diff = pos - vertex_pos;
-            float dist = Vector2Length(diff) / 2.0f;
-            auto line_middle = vertex_pos + Vector2Normalize(diff) * dist;
-
-            float fontsize = 50;
-            draw_text_centered(std::format("{}", edge.m_weight), line_middle, fontsize, WHITE);
+            // TODO:
+            // auto diff = pos - vertex_pos;
+            // float dist = Vector2Length(diff) / 2.0f;
+            // auto line_middle = vertex_pos + Vector2Normalize(diff) * dist;
+            // float fontsize = 50;
+            // draw_text_centered(std::format("{}", edge.m_weight), line_middle, fontsize, WHITE);
 
         }
 
@@ -331,9 +336,76 @@ private:
     return verts;
 }
 
+[[nodiscard]] static auto xml_get_child_elements(tinyxml2::XMLElement *elem, const char *name) {
+    assert(elem != nullptr);
+
+    std::vector<tinyxml2::XMLElement*> elems;
+
+    tinyxml2::XMLElement *node = elem->FirstChildElement(name);
+    while (node != nullptr) {
+        elems.push_back(node);
+        node = node->NextSiblingElement(name);
+    }
+
+    return elems;
+}
+
+[[nodiscard]] static Vector2 vec2_from_lat_lon(float lat, float lon, float radius) {
+    float phi = (90 - lat) * (PI / 180);
+    float theta = (lon + 180) * (PI / 180);
+
+    float x = -(radius * sin(phi) * cos(theta));
+    float y = (radius * sin(phi) * sin(theta));
+
+    return { x, y };
+}
+
 int main() {
 
-    auto vertices = generate_random_vertices(50);
+    std::unordered_map<VertexId, Vertex> vertices;
+
+    tinyxml2::XMLDocument doc;
+    doc.LoadFile("./map.osm");
+
+    auto osm = doc.FirstChildElement("osm");
+    assert(osm != nullptr);
+
+    auto nodes = xml_get_child_elements(osm, "node");
+
+    for (auto &node : nodes) {
+        auto id = node->Attribute("id");
+        auto lat = node->Attribute("lat");
+        auto lon = node->Attribute("lon");
+        std::println("id: {}, lat: {}, lon: {}", id, lat, lon);
+
+        VertexId vtx_id;
+        std::from_chars(id, id + strlen(id), vtx_id);
+
+        float latf;
+        std::from_chars(lat, lat + strlen(lat), latf);
+
+        float lonf;
+        std::from_chars(lon, lon + strlen(lon), lonf);
+
+        Vector2 pos = vec2_from_lat_lon(latf, lonf, 1.0f);
+        pos.x = abs(pos.x);
+        pos.y = abs(pos.y);
+
+        vertices[vtx_id] = { vtx_id, { }, pos };
+    }
+
+    auto ways = xml_get_child_elements(osm, "way");
+
+    for (auto &way : ways) {
+        auto nds = xml_get_child_elements(way, "nd");
+        for (auto &nd : nds) {
+            auto ref = nd->Attribute("ref");
+            std::println("ref: {}", ref);
+        }
+    }
+
+    std::println("vertices: {}", vertices.size());
+    // auto vertices = generate_random_vertices(10);
 
     // std::unordered_map<VertexId, Vertex> vertices {
     //     { 1, { 1, { { 2, 5 }, { 5, 2 } }, { 0, 0.5 } } },
@@ -364,7 +436,7 @@ int main() {
                 //     solver.reset();
                 // }
 
-                solver.next();
+                // solver.next();
 
                 fut = GetTime() + interval;
             }
