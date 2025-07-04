@@ -127,16 +127,15 @@ public:
             case State::Visiting: {
                 auto &vtx = m_vertices.at(m_current);
 
-
-                visit_neighbour();
-                m_neighbour++;
-
                 if (m_neighbour == vtx.m_neighbours.end()) {
                     m_unvisited.remove(m_current);
                     m_state = State::Idle;
                     next();
                     return;
                 }
+
+                visit_neighbour();
+                m_neighbour++;
 
             } break;
 
@@ -197,11 +196,12 @@ public:
             draw_neighbours(pos, vtx.m_neighbours);
         }
 
-        if (m_solver.m_state == Solver::State::Visiting) {
-            auto other_pos = m_solver.m_vertices.at(m_solver.m_neighbour->m_other_id).m_pos;
-            auto pos = m_solver.m_vertices.at(m_solver.m_current).m_pos;
-            DrawLineEx(convert_vertex_pos(pos), convert_vertex_pos(other_pos), 5, GREEN);
-        }
+        // FIXME:
+        // if (m_solver.m_state == Solver::State::Visiting) {
+        //     auto other_pos = m_solver.m_vertices.at(m_solver.m_neighbour->m_other_id).m_pos;
+        //     auto pos = m_solver.m_vertices.at(m_solver.m_current).m_pos;
+        //     DrawLineEx(convert_vertex_pos(pos), convert_vertex_pos(other_pos), 5, GREEN);
+        // }
 
         for (auto &[id, vtx] : m_solver.m_vertices) {
             draw_vertex(id, vtx);
@@ -224,11 +224,12 @@ private:
         auto pos = convert_vertex_pos(vtx.m_pos);
         auto color = vtx.m_id == m_solver.m_current ? RED : BLUE;
 
-        if (m_solver.m_state == Solver::State::Visiting) {
-            auto neighbour = m_solver.m_neighbour->m_other_id;
-            if (vtx.m_id == neighbour)
-                color = GREEN;
-        }
+        // FIXME:
+        // if (m_solver.m_state == Solver::State::Visiting) {
+        //     auto neighbour = m_solver.m_neighbour->m_other_id;
+        //     if (vtx.m_id == neighbour)
+        //         color = GREEN;
+        // }
 
         if (m_solver.m_state == Solver::State::Terminated) {
             // TODO: make dest configurable
@@ -239,12 +240,11 @@ private:
             }
         }
 
-        float radius = 1;
+        float radius = 30;
         DrawCircleV(convert_vertex_pos(vtx.m_pos), radius, color);
 
-        // TODO:
-        // float fontsize = 50;
-        // draw_text_centered(std::format("{}", id), pos, fontsize, WHITE);
+        float fontsize = 50;
+        draw_text_centered(std::format("{}", id), pos, fontsize, WHITE);
     }
 
     void draw_ui() const {
@@ -438,21 +438,23 @@ private:
 
 int main() {
 
-    auto vertices = vertices_from_xml("./map.osm");
+    // auto vertices = vertices_from_xml("./map.osm");
 
     // auto vertices = generate_random_vertices(10);
 
-    // std::unordered_map<VertexId, Vertex> vertices {
-    //     { 1, { 1, { { 2, 5 }, { 5, 2 } }, { 0, 0.5 } } },
-    //     { 2, { 2, { { 1, 5 }, { 3, 2 }, { 4, 1 } }, { 1, 1 } } },
-    //     { 3, { 3, { { 2, 2 }, { 4, 2 } }, { 2, 0.5 } } },
-    //     { 4, { 4, { { 3, 2 }, { 5, 1 }, { 2, 1 } }, { 0.75, 0 } } },
-    //     { 5, { 5, { { 1, 2 }, { 4, 1 } }, { 0.25, 0 } } },
-    // };
+    std::unordered_map<VertexId, Vertex> vertices {
+        { 1, { 1, { { 2, 5 }, { 5, 2 } }, { 0.1, 0.5 } } },
+        { 2, { 2, { { 1, 5 }, { 3, 2 }, { 4, 1 } }, { 0.9, 0.9 } } },
+        { 3, { 3, { { 2, 2 }, { 4, 2 } }, { 0.9, 0.5 } } },
+        { 4, { 4, { { 3, 2 }, { 5, 1 }, { 2, 1 } }, { 0.75, 0.1 } } },
+        { 5, { 5, { { 1, 2 }, { 4, 1 } }, { 0.25, 0.1 } } },
+        { 6, { 6, { }, { 0.35, 0.3 } } },
+    };
 
     std::println("vertices: {}", vertices.size());
 
-    Solver solver(vertices, 12966960339);
+    // Solver solver(vertices, 12966960339);
+    Solver solver(vertices, 1);
     Renderer renderer(solver);
 
     SetTraceLogLevel(LOG_ERROR);
@@ -473,7 +475,7 @@ int main() {
                 //     solver.reset();
                 // }
 
-                // solver.next();
+                solver.next();
 
                 fut = GetTime() + interval;
             }
