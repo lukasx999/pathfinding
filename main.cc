@@ -475,10 +475,12 @@ int main() {
                 //     solver.reset();
                 // }
 
-                solver.next();
 
                 fut = GetTime() + interval;
             }
+
+            if (IsKeyPressed(KEY_J))
+                solver.next();
 
 
         }
