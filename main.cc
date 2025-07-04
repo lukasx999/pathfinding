@@ -120,6 +120,15 @@ public:
             case State::NextVertex: {
                 auto &vtx = m_vertices.at(m_current);
                 m_neighbour = vtx.m_neighbours.cbegin();
+
+                bool no_neighbours = m_neighbour == vtx.m_neighbours.end();
+
+                if (no_neighbours) {
+                    m_unvisited.remove(m_current);
+                    m_state = State::Idle;
+                    return;
+                }
+
                 m_state = State::Visiting;
 
             } break;
@@ -127,15 +136,14 @@ public:
             case State::Visiting: {
                 auto &vtx = m_vertices.at(m_current);
 
+                visit_neighbour();
+                m_neighbour++;
+
                 if (m_neighbour == vtx.m_neighbours.end()) {
                     m_unvisited.remove(m_current);
                     m_state = State::Idle;
-                    next();
                     return;
                 }
-
-                visit_neighbour();
-                m_neighbour++;
 
             } break;
 
@@ -196,12 +204,11 @@ public:
             draw_neighbours(pos, vtx.m_neighbours);
         }
 
-        // FIXME:
-        // if (m_solver.m_state == Solver::State::Visiting) {
-        //     auto other_pos = m_solver.m_vertices.at(m_solver.m_neighbour->m_other_id).m_pos;
-        //     auto pos = m_solver.m_vertices.at(m_solver.m_current).m_pos;
-        //     DrawLineEx(convert_vertex_pos(pos), convert_vertex_pos(other_pos), 5, GREEN);
-        // }
+        if (m_solver.m_state == Solver::State::Visiting) {
+            auto other_pos = m_solver.m_vertices.at(m_solver.m_neighbour->m_other_id).m_pos;
+            auto pos = m_solver.m_vertices.at(m_solver.m_current).m_pos;
+            DrawLineEx(convert_vertex_pos(pos), convert_vertex_pos(other_pos), 5, GREEN);
+        }
 
         for (auto &[id, vtx] : m_solver.m_vertices) {
             draw_vertex(id, vtx);
@@ -224,12 +231,11 @@ private:
         auto pos = convert_vertex_pos(vtx.m_pos);
         auto color = vtx.m_id == m_solver.m_current ? RED : BLUE;
 
-        // FIXME:
-        // if (m_solver.m_state == Solver::State::Visiting) {
-        //     auto neighbour = m_solver.m_neighbour->m_other_id;
-        //     if (vtx.m_id == neighbour)
-        //         color = GREEN;
-        // }
+        if (m_solver.m_state == Solver::State::Visiting) {
+            auto neighbour = m_solver.m_neighbour->m_other_id;
+            if (vtx.m_id == neighbour)
+                color = GREEN;
+        }
 
         if (m_solver.m_state == Solver::State::Terminated) {
             // TODO: make dest configurable
@@ -248,9 +254,6 @@ private:
     }
 
     void draw_ui() const {
-
-        // TODO:
-        return;
 
         DrawText(
             std::format("unvisited: {}", m_solver.m_unvisited).c_str(),
